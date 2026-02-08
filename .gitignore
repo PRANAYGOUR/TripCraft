@@ -1,0 +1,58 @@
+### Node / package
+node_modules/
+**/node_modules/
+
+# Vite / build outputs
+dist/
+build/
+out/
+public/build/
+.vite/
+.cache/
+
+# Project-specific build folders
+admin/dist/
+admin/build/
+customer/dist/
+customer/build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# Environment / secrets
+.env
+.env.*
+.env.local
+admin/.env.local
+customer/.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Misc caches
+.parcel-cache/
+.turbo/
+.serverless/
+/.yalc
+
+# Ignore lock/index artifacts
+.git/index.lock
