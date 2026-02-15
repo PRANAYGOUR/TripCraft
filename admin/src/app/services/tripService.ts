@@ -459,11 +459,17 @@ class TripService {
         };
       }
 
-      // Update status
+      // Update status and track the rejected hotel
+      const currentRejectedIds = trip.rejected_hotel_ids || [];
+      const newRejectedIds = trip.approved_hotel_id && !currentRejectedIds.includes(trip.approved_hotel_id)
+        ? [...currentRejectedIds, trip.approved_hotel_id]
+        : currentRejectedIds;
+
       const { data, error } = await supabase
         .from('trips')
         .update({
           status: 'rejected',
+          rejected_hotel_ids: newRejectedIds,
           description: reason || null,
           updated_at: new Date().toISOString(),
         })

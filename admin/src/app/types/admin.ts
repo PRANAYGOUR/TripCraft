@@ -15,7 +15,7 @@ export interface Trip {
   customerName: string;
   customerEmail: string;
   contactNumber: string;
-  
+
   // Basic Details
   destination: string;
   preferredCities: string[];
@@ -24,7 +24,7 @@ export interface Trip {
   duration: number;
   checkInDate: string;
   checkOutDate: string;
-  
+
   // Accommodation Preferences
   locationsNearby: string[];
   stayType: string;
@@ -35,18 +35,18 @@ export interface Trip {
     triple: number;
     quad: number;
   };
-  
+
   // Event Requirements
   eventHallRequired: boolean;
   hallSetupPreferences?: string[];
   audioVisualRequirements?: string[];
   eventServices?: string[];
-  
+
   // Meals & Refreshments
   meals: string[];
   mealType?: string;
   serviceStyle?: string;
-  
+
   // Status & Workflow
   status: TripStatus;
   submittedDate: string;
@@ -55,6 +55,13 @@ export interface Trip {
   recommendedHotelId?: string;
   rejectedHotelIds?: string[];
   acceptedHotelId?: string;
+
+  // Additional fields for compatibility
+  recommended_hotels?: any[];
+  created_at?: string;
+  start_date?: string;
+  budget?: number;
+  travelers?: number;
 }
 
 export interface Hotel {

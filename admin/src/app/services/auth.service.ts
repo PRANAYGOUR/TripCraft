@@ -126,6 +126,52 @@ class AuthService {
   }
 
   /**
+   * HOTEL PARTNER LOGIN
+   */
+  async loginHotelPartner(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) return { success: false, error: error.message };
+      if (!data.user) return { success: false, error: 'Login failed' };
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError || !profile) return { success: false, error: 'User profile not found' };
+
+      // Allow admin to login as hotel partner for testing/demo purposes if needed, 
+      // but strictly, it should be hotel_partner
+      // if (profile.role !== 'hotel_partner' && profile.role !== 'admin') {
+      if (profile.role !== 'hotel_partner') {
+        return { success: false, error: 'Hotel Partner access required' };
+      }
+
+      localStorage.setItem('userEmail', email);
+      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('userRole', 'hotel_partner');
+
+      if (!data.session) return { success: false, error: 'No session created' };
+
+      return {
+        success: true,
+        data: {
+          user: profile as User, // We return the updated profile user
+          session: data.session,
+        },
+      };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Login failed' };
+    }
+  }
+
+  /**
    * CUSTOMER SIGNUP
    * Create Supabase Auth user (trigger creates profile)
    */
@@ -183,6 +229,8 @@ class AuthService {
       if (loginResult.success) {
         return loginResult;
       }
+
+      if (!authData.session) return { success: false, error: 'No session created' };
 
       // Fallback: return user data
       return {
@@ -310,6 +358,8 @@ class AuthService {
         return loginResult;
       }
 
+      if (!authData.session) return { success: false, error: 'No session created' };
+
       // Fallback: return user data
       return {
         success: true,
@@ -327,6 +377,106 @@ class AuthService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Admin signup failed',
+      };
+    }
+  }
+
+  /**
+   * HOTEL PARTNER SIGNUP
+   * Create Supabase Auth user, update profile role to hotel_partner
+   */
+  async signupHotelPartner(
+    email: string,
+    password: string,
+    fullName: string
+  ): Promise<ApiResponse<LoginResponse>> {
+    try {
+      // Validate inputs
+      if (!email || !password || !fullName) {
+        return { success: false, error: 'All fields are required' };
+      }
+
+      if (password.length < 6) {
+        return { success: false, error: 'Password must be at least 6 characters' };
+      }
+
+      // Check if email already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        return { success: false, error: 'Email already registered' };
+      }
+
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: 'hotel_partner',
+          },
+        },
+      });
+
+      if (authError) {
+        return { success: false, error: authError.message };
+      }
+
+      if (!authData.user) {
+        return { success: false, error: 'Failed to create account' };
+      }
+
+      // Wait for trigger to create profile
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Force update role to hotel_partner
+      // If the trigger failed to set role correctly, let's try to fix it here if we assume first signup is hotel partner.
+      // But we can't easily force update if RLS blocks it.
+      // However, for development, let's assume if role is 'customer' but signed up via this method, 
+      // we might want to allow login anyway if we are 'hotel_partner' intended?
+      // No, that's unsafe. The user should run the SQL fix.
+
+      // Let's try to invoke a function or rely on metadata.
+      // Or just try the update one more time with error logging.
+      const { error: updateError } = await supabase.from('profiles').update({ role: 'hotel_partner' }).eq('id', authData.user.id);
+
+      if (updateError) {
+        console.error('Failed to set role to hotel_partner:', updateError);
+        // Return specific error to guide user
+        return {
+          success: false,
+          error: 'Account created but role assignment failed. Please run FIX_HOTEL_ROLE.sql in Supabase or ask admin.'
+        };
+      }
+
+      // Auto-login (reuse loginAdmin logic which just checks credentials and role, generic enough)
+      // Actually loginAdmin checks for 'admin' role. We need a generic login or use loginAdmin/loginCustomer logic but for hotel.
+      // Let's make a generic login or just verify the role here.
+
+      // Let's just return success and let the UI redirect or require login.
+      // But preserving the auto-login feel:
+      return {
+        success: true,
+        data: {
+          user: {
+            id: authData.user.id,
+            email,
+            name: fullName,
+            role: 'hotel_partner',
+          } as User,
+          session: authData.session,
+        },
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Hotel Partner signup failed',
       };
     }
   }

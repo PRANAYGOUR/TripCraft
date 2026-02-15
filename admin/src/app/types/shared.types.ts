@@ -4,7 +4,8 @@
  */
 
 export type TripStatus = 'pending' | 'recommended' | 'accepted' | 'rejected';
-export type UserRole = 'customer' | 'admin';
+export type HotelRequestStatus = 'pending' | 'quoted' | 'selected' | 'rejected' | 'accepted' | 'missed' | 'expired';
+export type UserRole = 'customer' | 'admin' | 'hotel_partner';
 
 // ============= USER =============
 export interface User {
@@ -19,9 +20,13 @@ export interface User {
 export interface Hotel {
   id: string;
   name: string;
+  brand?: string; // Added brand
+  user_id?: string; // Added user_id for strict filtering
   location: string;
   city: string;
   star_rating: number;
+  rating?: number; // Added for compatibility
+  image_url?: string; // Added for compatibility
   amenities: string[];
   location_type: string[]; // beach, city, nature, business, resort
   total_rooms: number;
@@ -40,6 +45,15 @@ export interface Hotel {
   description?: string; // Hotel description
   price_per_night?: number; // Price per night
   created_at?: string;
+
+  // Enterprise Fields
+  performance_score?: number;
+  total_completed_bookings?: number;
+  avg_response_time_hours?: number;
+  negotiation_success_rate?: number;
+  priority_partner?: boolean;
+  corporate_discount_percentage?: number;
+  commission_percentage?: number;
 }
 
 // ============= CUSTOMER FORM DATA (Unchanged) =============
@@ -71,6 +85,8 @@ export interface CustomerFormData {
   meals: string[];
   mealType: string[];
   serviceStyle: string[];
+  dietaryRestrictions?: string[]; // Added
+  accommodationPreferences?: string[]; // Added
   // Optional trip-level description / notes (admin or customer rejection reason)
   description?: string;
 }
@@ -81,15 +97,25 @@ export interface Trip {
   user_id: string;
   status: TripStatus;
 
+  // Key Trip Fields (mirrored from DB for easy access)
+  destination: string;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  travelers: number;
+
   // Customer Form (stored as-is, no modifications)
   form_data: CustomerFormData;
 
   // System-generated recommendations (2-3 hotels)
-  system_recommendations: Hotel[];
+  recommended_hotels: Hotel[];
 
   // Admin Selection
   approved_hotel_id?: string;
   approved_hotel?: Hotel; // Optional full object for UI convenience
+  rejected_hotel_ids?: string[]; // Added for tracking multiple rejections
+  rejectedHotelIds?: string[]; // Keeping for compatibility with any existing frontend code
+
 
   // Metadata
   created_at: string;
@@ -113,32 +139,102 @@ export interface LoginResponse {
   };
 }
 
+// ============= NEW ENTERPRISE TYPES =============
+
+export interface StructuredQuote {
+  roomCost: number;
+  foodCost: number;
+  conferenceCost: number;
+  transportCost: number;
+  taxes: number;
+  serviceCharges: number;
+  extraCharges: number;
+  discountOffered: number;
+  // Computed (handled by frontend logic usually, but good to store if needed)
+  basePrice: number;
+  finalBasePrice: number;
+}
+
+export interface HotelRequest {
+  id: string;
+  trip_id: string;
+  hotel_id: string;
+  status: HotelRequestStatus;
+  availability_status: 'pending' | 'fully_available' | 'partially_available' | 'not_available' | 'quoted' | 'expired';
+  negotiation_status: 'open' | 'counter_requested' | 'closed' | 'accepted';
+  round_number: number;
+  system_score: number;
+  deadline: string;
+
+  // Cost fields (stored directly in DB)
+  room_cost?: number;
+  food_cost?: number;
+  conference_cost?: number;
+  transport_cost?: number;
+  taxes?: number;
+  service_charges?: number;
+  extra_charges?: number;
+  discount_amount?: number;
+  base_price?: number;
+  final_base_price?: number;
+
+  quote_details?: StructuredQuote;
+  admin_notes?: string;
+  created_at: string;
+  updated_at: string;
+
+  // Joined Data (for UI)
+  hotel?: Hotel;
+  trip?: Trip;
+}
+
+export interface HotelNegotiation {
+  id: string;
+  hotel_request_id: string;
+  sender_role: 'admin' | 'hotel_partner';
+  message: string;
+  round_number: number;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id?: string;
+  recipient_role?: UserRole;
+  message: string;
+  read_status: boolean;
+  metadata?: any;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  performed_by?: string;
+  details?: any;
+  created_at: string;
+}
+
 // ============= STATUS DEFINITIONS =============
 /*
-STATUS WORKFLOW:
+STATUS WORKFLOW (UPDATED):
 
 pending
   ↓
-  └─→ (Admin reviews, selects hotel) → recommended
+  └─→ (System scores & Admin sends RFQ) → hotels_contacted
        ↓
-       ├─→ (Customer accepts) → accepted (FINAL - read-only)
+       ├─→ (Hotel responds with quote) → responded
+       │    ↓
+       │    └─→ (Admin negotiates) → negotiation_open
+       │         ↓
+       │         └─→ (Admin selects Best Value) → recommended
        │
-       └─→ (Customer rejects) → rejected
-            ↓
-            └─→ (Admin selects different hotel) → recommended (retry)
+       └─→ (Hotel rejects/expires) → rejected/expired
 
 PERMISSIONS:
-- Customer:
-  - Can view ONLY their own trips
-  - Can update status from "recommended" to "accepted" or "rejected"
-  
-- Admin:
-  - Can view ALL trips
-  - Can update approved_hotel when status is "pending" or "recommended"
-  - Cannot modify trips with status = "accepted"
-
-BUSINESS RULES:
-- Only system recommendations can be approved (rule-based matching)
-- Once accepted, trip becomes read-only for both parties
-- If rejected, admin must select from system_recommendations or trigger regeneration
+- Customer: View own trips, accept/reject recommendations.
+- Admin: View all, manage RFQs, negotiations, analytics.
+- Hotel Partner: View assigned RFQs, submit quotes, chat with admin.
 */

@@ -101,24 +101,24 @@ export function OverviewPage({ onViewTrip, trips = [], onRefreshTrips }: Overvie
       </div>
 
       {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-            {statCards.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={stat.label} className={`p-6 border-0 shadow-md`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-lg flex items-center justify-center bg-white/10 ${stat.color} shadow-sm`}> 
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
-                      <p className="text-2xl font-semibold">{stat.value}</p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={stat.label} className={`p-6 border-0 shadow-md`}>
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-lg flex items-center justify-center bg-white/10 ${stat.color} shadow-sm`}>
+                  <Icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">{stat.label}</p>
+                  <p className="text-2xl font-semibold">{stat.value}</p>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
 
       {/* Recent Submissions */}
       <Card className="p-6">
@@ -151,7 +151,7 @@ export function OverviewPage({ onViewTrip, trips = [], onRefreshTrips }: Overvie
                       <StatusBadge status={trip.status} />
                     </div>
                     <p className="text-sm text-gray-500">
-                      {trip.destination} • {trip.numberOfPeople || trip.travelers} people • {formatDate(trip.checkInDate || trip.start_date)}
+                      {trip.destination} • {trip.numberOfPeople || trip.travelers} people • {formatDate(trip.checkInDate || trip.start_date || '')}
                     </p>
                     {trip.description && (
                       <p className="text-sm text-gray-700 mt-2">
@@ -162,7 +162,7 @@ export function OverviewPage({ onViewTrip, trips = [], onRefreshTrips }: Overvie
 
                   <div className="text-right text-sm text-gray-500">
                     <p className="text-xs">Submitted</p>
-                    <p className="font-medium">{formatDate(trip.submittedDate || trip.created_at)}</p>
+                    <p className="font-medium">{formatDate(trip.submittedDate || trip.created_at || '')}</p>
                   </div>
                 </div>
 
@@ -202,26 +202,15 @@ export function OverviewPage({ onViewTrip, trips = [], onRefreshTrips }: Overvie
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-2">
                   <button
-                    onClick={() => setSelectedTrip(trip)}
+                    onClick={() => onViewTrip(trip.id)}
                     className="px-4 py-2 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded hover:scale-[1.02] transition-transform shadow"
                   >
                     View Details
                   </button>
                   {trip.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={() => setSelectedTrip(trip)}
-                        className="px-4 py-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
-                      >
-                        Recommend
-                      </button>
-                      <button
-                        onClick={() => setSelectedTrip(trip)}
-                        className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                      >
-                        Reject
-                      </button>
-                    </>
+                    <span className="text-xs text-orange-600 font-medium self-center px-2">
+                      Needs RFQ
+                    </span>
                   )}
                   {trip.status === 'recommended' && (
                     <button
